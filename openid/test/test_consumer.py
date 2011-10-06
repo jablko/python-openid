@@ -1075,43 +1075,36 @@ class TestReturnToArgs(unittest.TestCase):
         self.consumer = GenericConsumer(store)
 
     def test_returnToArgsOkay(self):
-        query = {
-            'openid.mode': 'id_res',
-            'openid.return_to': 'http://example.com/?foo=bar',
-            'foo': 'bar',
-            }
         # no return value, success is assumed if there are no exceptions.
-        self.consumer._verifyReturnToArgs(query)
+        self.consumer._verifyReturnToArgs(
+            'http://example.com/?foo=bar',
+            'http://example.com/?openid.mode=id_res&openid.return_to=http%3A%2F%2Fexample.com%2F%3Ffoo%3Dbar&foo=bar')
 
     def test_returnToArgsUnexpectedArg(self):
-        query = {
-            'openid.mode': 'id_res',
-            'openid.return_to': 'http://example.com/',
-            'foo': 'bar',
-            }
         # no return value, success is assumed if there are no exceptions.
         self.failUnlessRaises(ProtocolError,
-                              self.consumer._verifyReturnToArgs, query)
+            self.consumer._verifyReturnToArgs,
+            'http://example.com/',
+            'http://example.com/?openid.mode=id_res&openid.return_to=http%3A%2F%2Fexample.com%2F&foo=bar')
 
     def test_returnToMismatch(self):
-        query = {
-            'openid.mode': 'id_res',
-            'openid.return_to': 'http://example.com/?foo=bar',
-            }
         # fail, query has no key 'foo'.
         self.failUnlessRaises(ValueError,
-                              self.consumer._verifyReturnToArgs, query)
+            self.consumer._verifyReturnToArgs,
+            'http://example.com/?foo=bar',
+            'http://example.com/?openid.mode=id_res&openid.return_to=http%3A%2F%2Fexample.com%2F%3Ffoo%3Dbar')
 
-        query['foo'] = 'baz'
         # fail, values for 'foo' do not match.
         self.failUnlessRaises(ValueError,
-                              self.consumer._verifyReturnToArgs, query)
+            self.consumer._verifyReturnToArgs,
+            'http://example.com/?foo=bar',
+            'http://example.com/?openid.mode=id_res&openid.return_to=http%3A%2F%2Fexample.com%2F%3Ffoo%3Dbar&foo=baz')
 
 
     def test_noReturnTo(self):
         query = {'openid.mode': 'id_res'}
-        self.failUnlessRaises(ValueError,
-                              self.consumer._verifyReturnToArgs, query)
+        return_to = "http://some.url/path?foo=bar"
+        self.failIf(self.consumer._checkReturnTo(Message.fromPostArgs(query), return_to))
 
     def test_completeBadReturnTo(self):
         """Test GenericConsumer.complete()'s handling of bad return_to

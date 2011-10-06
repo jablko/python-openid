@@ -657,16 +657,19 @@ class GenericConsumer(object):
         against a return_to URL from an application.  Return True on
         success, False on failure.
         """
-        # Check the openid.return_to args against args in the original
-        # message.
+        # Check the return_to base URL against the one in the message.
+        msg_return_to = message.getArg(OPENID_NS, 'return_to')
+        if msg_return_to is None:
+            oidutil.log('Response has no return_to')
+            return False
+
+        # Check the openid.return_to args against args in the URL from the
+        # application.
         try:
-            self._verifyReturnToArgs(message.toPostArgs())
+            self._verifyReturnToArgs(msg_return_to, return_to)
         except ProtocolError, why:
             oidutil.log("Verifying return_to arguments: %s" % (why[0],))
             return False
-
-        # Check the return_to base URL against the one in the message.
-        msg_return_to = message.getArg(OPENID_NS, 'return_to')
 
         # The URL scheme, authority, and path MUST be the same between
         # the two URLs.
@@ -839,19 +842,17 @@ class GenericConsumer(object):
                 raise ProtocolError('"%s" not signed' % (field,))
 
 
-    def _verifyReturnToArgs(query):
+    def _verifyReturnToArgs(msg_return_to, return_to):
         """Verify that the arguments in the return_to URL are present in this
-        response.
+        URL.
         """
-        message = Message.fromPostArgs(query)
-        return_to = message.getArg(OPENID_NS, 'return_to')
-
-        if return_to is None:
-            raise ProtocolError('Response has no return_to')
+        parsed_url = urlparse(msg_return_to)
+        rt_query = parsed_url[4]
+        parsed_args = cgi.parse_qsl(rt_query)
 
         parsed_url = urlparse(return_to)
         rt_query = parsed_url[4]
-        parsed_args = cgi.parse_qsl(rt_query)
+        query = dict(cgi.parse_qsl(rt_query))
 
         for rt_key, rt_value in parsed_args:
             try:
@@ -866,6 +867,7 @@ class GenericConsumer(object):
 
         # Make sure all non-OpenID arguments in the response are also
         # in the signed return_to.
+        message = Message.fromPostArgs(query)
         bare_args = message.getArgs(BARE_NS)
         for pair in bare_args.iteritems():
             if pair not in parsed_args:
